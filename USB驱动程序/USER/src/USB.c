@@ -1,7 +1,6 @@
 /************************************************
-	柔微智能科技（苏州）有限公司
 	描述：USB与上位机通信相关文件
-	作者：付佳伟
+	作者：南山匿
 ************************************************/
 
 
@@ -10,19 +9,17 @@
 ************************************************/
 #include "USB.h"
 
-
+/*协议格式为：
+		描述	   帧头		 内容长度①		  功能		 内容			 帧尾			 CRC
+		长度	  2字节		  1字节		   	 1字节		N字节			3字节			2字节
+		数据	0x55,0xAA	0x00~0xFF  	   0x00~0xFF	 ~	       0xFF 0xFF 0xFF		~
+*/
 
 
 /************************************************
 	全局变量
 ************************************************/
-uint8_t i = 1 ,j = 1;					
-
-uint8_t H_nmb_max = 0,H_nmb_min = 96;
-uint8_t L_nmb_max = 0,L_nmb_min = 96;
-
-float AD_max = 0,AD_min = 2.5;
-
+			
 
 /************************************************
 	函数声明
@@ -165,19 +162,21 @@ void CRC_write(uint8_t *array)
 	... ：根据不同的功能有不同的输入参数
 				①0x01功能：第一个参数是电平信号，第二个参数是电压信号（float类型），都为指针输入
 输出参数：
-	*array：加了CRC、帧头、数据的数组
+	*array：加了CRC、帧头、数据等的数组
 返回：无
 *******************************************************************************/
 void send_array_handle(uint8_t *array ,uint8_t function_temporary ,...)
 {
+	/*
+	例如
 	if(function_temporary == 0x00){
 		va_list ap;
 		void* float_data = 0;
 		uint8_t i = 0 ,j = 0;
 		va_start(ap, function_temporary);
-		*array 			 = 0x55;
+		*array 		 = 0x55;
 		*(array + 1) =0xAA;
-		*(array + 2) =0x09;
+		*(array + 2) =0x0C;
 		*(array + 3) =0x00;
 		float_data = va_arg(ap ,void *);
 		for(int i=0; i<4; i++)
@@ -188,26 +187,14 @@ void send_array_handle(uint8_t *array ,uint8_t function_temporary ,...)
 		*(array + 4) = i;
 		j = *va_arg(ap ,uint8_t *);
 		*(array + 5) = j;
-		
+		*(array + 10) = 0xFF;
+		*(array + 11) = 0xFF;
+		*(array + 12) = 0xFF;
 		va_end(ap);
 		CRC_write(array);
 	}
-	else if(function_temporary == 0x01){
-		va_list ap;
-		void* float_data = 0;
-		va_start(ap, function_temporary);
-		*array 			 = 0x55;
-		*(array + 1) =0xAA;
-		*(array + 2) =0x07;
-		*(array + 3) =0x01;
-		float_data = va_arg(ap ,void *);
-    for(int i=0; i<4; i++)
-    {
-        *(array + 4 + i) = ((uint8_t *)float_data)[i];
-    }
-		va_end(ap);
-		CRC_write(array);
-	}
+	*/
+
 }
 
 
@@ -221,6 +208,7 @@ void send_array_handle(uint8_t *array ,uint8_t function_temporary ,...)
 *******************************************************************************/
 void function(uint8_t *array)
 {
+	/*
 	if(*(array + 3) == 0x01){
 		//读取数据
 		float foat_data = 0;
@@ -232,6 +220,7 @@ void function(uint8_t *array)
 		send_array_handle(send_data ,0x01 ,&foat_data);
 		USB_send_array(send_data ,send_data[2] + 3);
 	}
+	*/
 }
 
 
@@ -256,46 +245,4 @@ void data_analysis(uint8_t *array)
 			clear_array(array ,USB_USART_REC_LEN);
 }
 
-
-/*******************************************************************************
-函数：updata
-功能：向上位机更新数据
-输入参数：无
-输出参数：无
-返回：无
-*******************************************************************************/
-void updata(void)
-{
-	float foat_data = 0;
-	
-	if(j == LIE && i == HANG + 1){
-		i = 1;
-		j = 1;
-		IWDG_Feed();
-	}
-	else if(i == HANG + 1){
-		j++;
-		i = 1;
-	}
-	if(H_nmb_max < i)
-		H_nmb_max = i;
-	if(H_nmb_min > i)
-		H_nmb_min = i;
-	if(L_nmb_max < i)
-		L_nmb_max = i;
-	if(L_nmb_min > i)
-		L_nmb_min = i;
-	com_choose(i ,j);
-	foat_data = ADS1256_Read_dat();
-	if(AD_max < foat_data)
-		AD_max = foat_data;
-	if(AD_min > foat_data)
-		AD_min = foat_data;
-	//发送,foat_data
-	uint8_t send_data[12] = {0};
-	send_array_handle(send_data ,0x00 ,&foat_data ,&i ,&j);
-	USB_send_array(send_data ,send_data[2] + 3);
-	i++;
-	
-}
 
